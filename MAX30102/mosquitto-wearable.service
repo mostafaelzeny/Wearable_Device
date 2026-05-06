@@ -1,0 +1,12 @@
+[Unit]
+Description=Wearable MQTT broker with WebSockets
+After=network-online.target
+
+[Service]
+Type=simple
+ExecStart=/usr/sbin/mosquitto -c "/home/mo/wearable device/Arduino_Skeches/First_working_mx/mosquitto-websockets.conf"
+Restart=on-failure
+RestartSec=3
+
+[Install]
+WantedBy=default.target
