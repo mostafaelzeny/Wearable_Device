@@ -155,7 +155,9 @@ static const char INDEX_HTML[] PROGMEM = R"rawliteral(
 
     <section class="charts">
       <div class="chartPanel"><canvas id="zChart"></canvas></div>
-      <div class="chartPanel"><canvas id="rxChart"></canvas></div>
+      <div class="chartPanel"><canvas id="phaseChart"></canvas></div>
+      <div class="chartPanel"><canvas id="reactanceChart"></canvas></div>
+      <div class="chartPanel"><canvas id="nyquistChart"></canvas></div>
     </section>
 
     <div class="tableWrap">
@@ -178,7 +180,9 @@ static const char INDEX_HTML[] PROGMEM = R"rawliteral(
 
   <script>
     let zChart;
-    let rxChart;
+    let phaseChart;
+    let reactanceChart;
+    let nyquistChart;
 
     function fmt(value, digits = 3) {
       if (value === null || value === undefined || Number.isNaN(Number(value))) return '';
@@ -271,11 +275,17 @@ static const char INDEX_HTML[] PROGMEM = R"rawliteral(
     function renderCharts(rows) {
       const labels = rows.map(row => row.frequency);
       const zValues = rows.map(row => row.zMagnitude);
-      const rValues = rows.map(row => row.resistance);
+      const phaseValues = rows.map(row => row.phaseDeg);
       const xValues = rows.map(row => row.reactance);
+      const nyquistValues = rows.map(row => ({
+        x: row.resistance,
+        y: -row.reactance
+      }));
 
       if (zChart) zChart.destroy();
-      if (rxChart) rxChart.destroy();
+      if (phaseChart) phaseChart.destroy();
+      if (reactanceChart) reactanceChart.destroy();
+      if (nyquistChart) nyquistChart.destroy();
 
       zChart = new Chart(document.getElementById('zChart'), {
         type: 'line',
@@ -293,6 +303,9 @@ static const char INDEX_HTML[] PROGMEM = R"rawliteral(
         options: {
           responsive: true,
           maintainAspectRatio: false,
+          plugins: {
+            title: { display: true, text: '|Z| vs Frequency' }
+          },
           scales: {
             x: { title: { display: true, text: 'Frequency (Hz)' } },
             y: { title: { display: true, text: '|Z| (Ohm)' } }
@@ -300,33 +313,80 @@ static const char INDEX_HTML[] PROGMEM = R"rawliteral(
         }
       });
 
-      rxChart = new Chart(document.getElementById('rxChart'), {
+      phaseChart = new Chart(document.getElementById('phaseChart'), {
         type: 'line',
         data: {
           labels,
-          datasets: [
-            {
-              label: 'Resistance R Ohm',
-              data: rValues,
-              borderColor: '#177245',
-              pointRadius: 2,
-              tension: 0.18
-            },
-            {
-              label: 'Reactance X Ohm',
-              data: xValues,
-              borderColor: '#b42318',
-              pointRadius: 2,
-              tension: 0.18
-            }
-          ]
+          datasets: [{
+            label: 'Phase Deg',
+            data: phaseValues,
+            borderColor: '#7a2e83',
+            backgroundColor: 'rgba(122, 46, 131, 0.10)',
+            pointRadius: 2,
+            tension: 0.18
+          }]
         },
         options: {
           responsive: true,
           maintainAspectRatio: false,
+          plugins: {
+            title: { display: true, text: 'Phase vs Frequency' }
+          },
           scales: {
             x: { title: { display: true, text: 'Frequency (Hz)' } },
-            y: { title: { display: true, text: 'Ohm' } }
+            y: { title: { display: true, text: 'Phase (Deg)' } }
+          }
+        }
+      });
+
+      reactanceChart = new Chart(document.getElementById('reactanceChart'), {
+        type: 'line',
+        data: {
+          labels,
+          datasets: [{
+            label: 'Reactance X Ohm',
+            data: xValues,
+            borderColor: '#b42318',
+            backgroundColor: 'rgba(180, 35, 24, 0.10)',
+            pointRadius: 2,
+            tension: 0.18
+          }]
+        },
+        options: {
+          responsive: true,
+          maintainAspectRatio: false,
+          plugins: {
+            title: { display: true, text: 'Reactance X vs Frequency' }
+          },
+          scales: {
+            x: { title: { display: true, text: 'Frequency (Hz)' } },
+            y: { title: { display: true, text: 'Reactance X (Ohm)' } }
+          }
+        }
+      });
+
+      nyquistChart = new Chart(document.getElementById('nyquistChart'), {
+        type: 'scatter',
+        data: {
+          datasets: [{
+            label: '-X vs R',
+            data: nyquistValues,
+            borderColor: '#177245',
+            backgroundColor: 'rgba(23, 114, 69, 0.14)',
+            pointRadius: 3,
+            showLine: true,
+            tension: 0.12
+          }]
+        },
+        options: {
+          responsive: true,
+          maintainAspectRatio: false,
+          plugins: {
+            title: { display: true, text: 'Nyquist Plot (-X vs R)' }
+          },
+          scales: {
+            x: { title: { display: true, text: 'Resistance R (Ohm)' } },
+            y: { title: { display: true, text: '-Reactance X (Ohm)' } }
           }
         }
       });
