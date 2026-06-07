@@ -54,7 +54,7 @@ const double FREQ_STEP  = 1000.0;      // 1 kHz step
 const int NUM_POINTS = 100;            // 1 kHz to 100 kHz
 
 // Calibration resistor value
-const double CALIBRATION_RESISTOR = 16000.0; // 16k ohm
+const double CALIBRATION_RESISTOR = 16000.0; // 200k ohm
 double gainFactor[NUM_POINTS];
 double systemPhase[NUM_POINTS];
 bool isCalibrated = false;

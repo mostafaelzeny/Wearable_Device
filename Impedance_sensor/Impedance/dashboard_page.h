@@ -51,6 +51,9 @@ static const char INDEX_HTML[] PROGMEM = R"rawliteral(
       background: white;
       color: #244a8f;
     }
+    input[type="file"] {
+      display: none;
+    }
     #status {
       min-height: 22px;
       margin: 8px 0 16px;
@@ -146,6 +149,8 @@ static const char INDEX_HTML[] PROGMEM = R"rawliteral(
       <button onclick="runAction('/calibrate', 'Calibration running...')">Start Calibration</button>
       <button onclick="runAction('/measure', 'Measurement running...')">Start Measurement</button>
       <button class="secondary" onclick="refreshDashboard()">Refresh Data</button>
+      <button class="secondary" onclick="document.getElementById('csvImport').click()">Upload Saved CSV</button>
+      <input id="csvImport" type="file" accept=".csv,text/csv" onchange="uploadSavedCsv(event)">
       <a class="button secondary" href="/csv">Download CSV</a>
     </div>
     <div id="status">Ready</div>
@@ -157,7 +162,7 @@ static const char INDEX_HTML[] PROGMEM = R"rawliteral(
       <div class="chartPanel"><canvas id="zChart"></canvas></div>
       <div class="chartPanel"><canvas id="phaseChart"></canvas></div>
       <div class="chartPanel"><canvas id="reactanceChart"></canvas></div>
-      <div class="chartPanel"><canvas id="nyquistChart"></canvas></div>
+      <div class="chartPanel"><canvas id="resistanceReactanceChart"></canvas></div>
     </section>
 
     <div class="tableWrap">
@@ -182,7 +187,7 @@ static const char INDEX_HTML[] PROGMEM = R"rawliteral(
     let zChart;
     let phaseChart;
     let reactanceChart;
-    let nyquistChart;
+    let resistanceReactanceChart;
 
     function fmt(value, digits = 3) {
       if (value === null || value === undefined || Number.isNaN(Number(value))) return '';
@@ -257,6 +262,51 @@ static const char INDEX_HTML[] PROGMEM = R"rawliteral(
       await loadSessions();
     }
 
+    async function uploadSavedCsv(event) {
+      const input = event.target;
+      const file = input.files && input.files[0];
+      if (!file) return;
+
+      try {
+        const text = await file.text();
+        const rows = parseCsvReadings(text);
+        if (rows.length === 0) {
+          document.getElementById('status').textContent = 'No valid readings found in ' + file.name;
+          return;
+        }
+
+        renderRows(rows);
+        renderCharts(rows);
+        document.getElementById('status').textContent = 'Loaded ' + rows.length + ' readings from ' + file.name;
+      } catch (error) {
+        document.getElementById('status').textContent = 'CSV upload failed: ' + error.message;
+      } finally {
+        input.value = '';
+      }
+    }
+
+    function parseCsvReadings(text) {
+      const lines = text.split(/\r?\n/).map(line => line.trim()).filter(line => line.length > 0);
+      if (lines.length < 2) return [];
+
+      return lines.slice(1).map(line => {
+        const parts = line.split(',').map(value => value.trim());
+        if (parts.length < 7) return null;
+
+        const row = {
+          frequency: Number(parts[0]),
+          real: Number(parts[1]),
+          imag: Number(parts[2]),
+          zMagnitude: Number(parts[3]),
+          phaseDeg: Number(parts[4]),
+          resistance: Number(parts[5]),
+          reactance: Number(parts[6])
+        };
+
+        return Object.values(row).every(value => Number.isFinite(value)) ? row : null;
+      }).filter(row => row !== null);
+    }
+
     function renderRows(rows) {
       const tbody = document.getElementById('dataRows');
       tbody.innerHTML = rows.map(row =>
@@ -276,16 +326,16 @@ static const char INDEX_HTML[] PROGMEM = R"rawliteral(
       const labels = rows.map(row => row.frequency);
       const zValues = rows.map(row => row.zMagnitude);
       const phaseValues = rows.map(row => row.phaseDeg);
-      const xValues = rows.map(row => row.reactance);
-      const nyquistValues = rows.map(row => ({
+      const xValues = rows.map(row => Math.abs(row.reactance));
+      const resistanceReactanceValues = rows.map(row => ({
         x: row.resistance,
-        y: -row.reactance
+        y: row.reactance
       }));
 
       if (zChart) zChart.destroy();
       if (phaseChart) phaseChart.destroy();
       if (reactanceChart) reactanceChart.destroy();
-      if (nyquistChart) nyquistChart.destroy();
+      if (resistanceReactanceChart) resistanceReactanceChart.destroy();
 
       zChart = new Chart(document.getElementById('zChart'), {
         type: 'line',
@@ -344,7 +394,7 @@ static const char INDEX_HTML[] PROGMEM = R"rawliteral(
         data: {
           labels,
           datasets: [{
-            label: 'Reactance X Ohm',
+            label: '|Reactance X| Ohm',
             data: xValues,
             borderColor: '#b42318',
             backgroundColor: 'rgba(180, 35, 24, 0.10)',
@@ -356,21 +406,21 @@ static const char INDEX_HTML[] PROGMEM = R"rawliteral(
           responsive: true,
           maintainAspectRatio: false,
           plugins: {
-            title: { display: true, text: 'Reactance X vs Frequency' }
+            title: { display: true, text: '|Reactance X| vs Frequency' }
           },
           scales: {
             x: { title: { display: true, text: 'Frequency (Hz)' } },
-            y: { title: { display: true, text: 'Reactance X (Ohm)' } }
+            y: { title: { display: true, text: '|Reactance X| (Ohm)' } }
           }
         }
       });
 
-      nyquistChart = new Chart(document.getElementById('nyquistChart'), {
+      resistanceReactanceChart = new Chart(document.getElementById('resistanceReactanceChart'), {
         type: 'scatter',
         data: {
           datasets: [{
-            label: '-X vs R',
-            data: nyquistValues,
+            label: 'Reactance X vs Resistance R',
+            data: resistanceReactanceValues,
             borderColor: '#177245',
             backgroundColor: 'rgba(23, 114, 69, 0.14)',
             pointRadius: 3,
@@ -382,14 +432,15 @@ static const char INDEX_HTML[] PROGMEM = R"rawliteral(
           responsive: true,
           maintainAspectRatio: false,
           plugins: {
-            title: { display: true, text: 'Nyquist Plot (-X vs R)' }
+            title: { display: true, text: 'Reactance X vs Resistance R' }
           },
           scales: {
             x: { title: { display: true, text: 'Resistance R (Ohm)' } },
-            y: { title: { display: true, text: '-Reactance X (Ohm)' } }
+            y: { title: { display: true, text: 'Reactance X (Ohm)' } }
           }
         }
       });
+
     }
 
     loadData();
