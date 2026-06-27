@@ -45,8 +45,15 @@
 #define PGA_X5 0x00   // D8 = 0
 #define PGA_X1 0x01   // D8 = 1
 
-
 #define PGA_GAIN PGA_X1   // recommended for your 16kΩ test
+
+// Choose Output Voltage Range here
+#define RANGE_1 0x00  // 2.0 V p-p (D10=0, D9=0)
+#define RANGE_2 0x06  // 1.0 V p-p (D10=1, D9=1)
+#define RANGE_3 0x04  // 0.4 V p-p (D10=1, D9=0)
+#define RANGE_4 0x02  // 0.2 V p-p (D10=0, D9=1)
+
+#define VOLTAGE_RANGE RANGE_2   // Set to Range 2 as requested
 
 // Sweep settings
 const double START_FREQ = 1000.0;      // 1 kHz
@@ -54,7 +61,7 @@ const double FREQ_STEP  = 1000.0;      // 1 kHz step
 const int NUM_POINTS = 100;            // 1 kHz to 100 kHz
 
 // Calibration resistor value
-const double CALIBRATION_RESISTOR = 16000.0; // 200k ohm
+const double CALIBRATION_RESISTOR = 68.0; // 200k ohm
 double gainFactor[NUM_POINTS];
 double systemPhase[NUM_POINTS];
 bool isCalibrated = false;
@@ -140,7 +147,7 @@ long frequencyCode(double frequency) {
 }
 
 void setControl(byte command) {
-  writeRegister(REG_CONTROL_HB, command | PGA_GAIN);
+  writeRegister(REG_CONTROL_HB, command | VOLTAGE_RANGE | PGA_GAIN);
   writeRegister(REG_CONTROL_LB, 0x00); // internal clock
 }
 
