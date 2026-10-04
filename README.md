@@ -58,8 +58,12 @@ All sweep configurations are located at the very top of the `AD5940_Impedance.in
 *This project is based on a port of the official AD5940 library to ESP32. It supports SPI communications at 8MHz.*
 
 **Connections:**
-The default electrode switch configuration uses a 2-wire setup:
-- **CE0**: Drive & Positive Sense
-- **AIN1**: Current Return & Negative Sense
+The electrode switch configuration supports a **4-wire** (Kelvin) setup for high accuracy measurements. The default mapping in the code is:
+- **CE0**: Drive (Force +)
+- **AIN1**: Positive Sense (Sense +)
+- **AIN2**: Negative Sense (Sense -)
+- **AIN3**: Current Return (Force -)
+
+*(If you are using a different 4-wire pinout, you can easily change the `SWITCH_` macros under the USER CONFIGURABLE PARAMETERS section of `AD5940_Impedance.ino`)*
 
 *Disclaimer: This library is not officially endorsed by Analog Devices.*
